@@ -1,0 +1,45 @@
+:host {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 5px;
+    overflow: auto;
+}
+
+.prog-frame {
+    padding: 6px 10px;
+    display: flex;
+    flex-direction: column;
+}
+
+#progPercent {
+    min-width: 50px;
+    text-align: right;
+    border-bottom: 1px solid lightgray;
+}
+
+#logs {
+    flex: 1 1 auto;
+    overflow: auto;
+}
+
+#logList {
+    flex: 1 1 auto;
+    overflow: auto;
+    gap: 0px;
+}
+
+.log-msg {
+    padding: 6px;
+    font-size: 12px;
+    border-bottom: solid 1px #ededed;
+}
+
+
+
+
+
+
+

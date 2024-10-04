@@ -1,0 +1,12 @@
+{
+  "name": "serial-link",
+  "main": "index.html",
+  "chromium-args": "--disable-raf-throttling",
+  "window": {
+    "width": 500,
+    "height": 900,
+    "min_width": 300,
+    "min_height": 300,
+    "icon": "your-app-logo.png"
+  }
+}

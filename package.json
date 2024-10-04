@@ -1,0 +1,54 @@
+{
+  "name": "sbl",
+  "version": "0.0.0",
+  "main": "http://localhost:8964",
+  "node-remote": "http://localhost:8964",
+  "chromium-args": "--disable-raf-throttling",
+  "window": {
+    "width": 300,
+    "height": 700,
+    "min_width": 300,
+    "min_height": 500
+  },
+  "scripts": {
+    "ng": "ng",
+    "start": "concurrently \"ng serve --port=8964 --verbose\" \"nw .\"",
+    "build": "ng build",
+    "watch": "ng build --watch --configuration development",
+    "test": "ng test"
+  },
+  "private": true,
+  "dependencies": {
+    "@angular/animations": "^18.1.0",
+    "@angular/common": "^18.1.0",
+    "@angular/compiler": "^18.1.0",
+    "@angular/core": "^18.1.0",
+    "@angular/forms": "^18.1.0",
+    "@angular/platform-browser": "^18.1.0",
+    "@angular/platform-browser-dynamic": "^18.1.0",
+    "@angular/router": "^18.1.0",
+    "@types/chrome": "^0.0.271",
+    "aes-js": "^3.1.2",
+    "file-dialog": "^0.0.8",
+    "file-saver": "^2.0.5",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0",
+    "zone.js": "~0.14.3"
+  },
+  "devDependencies": {
+    "@angular-devkit/build-angular": "^18.1.3",
+    "@angular/cli": "^18.1.3",
+    "@angular/compiler-cli": "^18.1.0",
+    "@types/file-saver": "^2.0.7",
+    "@types/jasmine": "~5.1.0",
+    "concurrently": "^9.0.1",
+    "jasmine-core": "~5.1.0",
+    "karma": "~6.4.0",
+    "karma-chrome-launcher": "~3.2.0",
+    "karma-coverage": "~2.2.0",
+    "karma-jasmine": "~5.1.0",
+    "karma-jasmine-html-reporter": "~2.1.0",
+    "nw": "^0.91.0-sdk",
+    "typescript": "~5.5.2"
+  }
+}

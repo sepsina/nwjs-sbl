@@ -1,0 +1,52 @@
+<div class="col-top-strech app-card">
+    <div class="row-left-stretch app-card-toolbar">
+        <div class="row-left app-card-title">
+            bin-file
+        </div>
+        <button id="selBin" (click)="encryptBin()">
+            <i class="fa fa-download"></i> enc
+        </button>
+        <button id="selBin" (click)="selBinFile()">
+            <i class="fa fa-download"></i> read
+        </button>
+        <button id="wrBin" (click)="writeBin()">
+            <i class="fa fa-upload"></i> write
+        </button>
+    </div>
+    <div class="prog-frame">
+        {{ binPath }}
+        <div class="row-left">
+            <progress #loadProg
+                id="load_prog"
+                max="100"
+                [value]='serial.binProgress.toFixed(0)'>
+            </progress>
+            <!-- <span id="progPercent">{{serial.binProgress.toFixed(0)}} %</span> -->
+            <span id="progPercent">{{loadProg.value}} %</span>
+        </div>
+
+    </div>
+</div>
+
+<div class="col-top-strech app-card" id="logs">
+    <div class="row-left app-card-toolbar">
+        <div class="row-left app-card-title">logs</div>
+        <button id="clr_logs" (click)="clearLogs()">
+            <i class="fa fa-trash-o"></i> clear
+        </button>
+        <div class="row-right">
+            <label>autoscroll:</label>
+            <input
+                #cbScroll
+                type="checkbox"
+                (click)="autoScrollChange()">
+        </div>
+    </div>
+    <div class="col-top-strech" id="logList" #logList>
+        @for(msg of logs; track msg){
+            <div class="row-left log-msg" [style.color]="msg.color">
+                {{ msg.text }}
+            </div>
+        }
+    </div>
+</div>
