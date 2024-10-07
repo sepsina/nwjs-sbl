@@ -42,8 +42,7 @@ const test_data = [
 ];
 
 // TEST
-const ssrURL = 'https://raw.githubusercontent.com/sepsina/sbl-v1/master/src/assets/test/SSR_009.bin'
-//const ssrURL = 'https://raw.githubusercontent.com/sepsina/sbl-v1/master/src/assets/test/SSR_010.bin'
+const ssrURL = 'https://www.dropbox.com/scl/fi/zs1a05dhxzwpu6ebwgp8x/enc.bin?rlkey=xudhvq5093wr9ex5hnsxdgmgq&st=1jo659ut&dl=1';
 
 const FLASH_PAGE_SIZE = 512;
 const PART_DESC_LEN = 16;
