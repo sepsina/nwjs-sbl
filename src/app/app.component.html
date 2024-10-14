@@ -3,7 +3,7 @@
         <div class="row-left app-card-title">
             bin-file
         </div>
-        <button id="selBin" (click)="encryptBin()">
+        <button id="encBin" (click)="encryptBin()">
             <i class="fa fa-download"></i> enc
         </button>
         <button id="selBin" (click)="dlBinFile()">
@@ -19,7 +19,7 @@
             <progress #loadProg
                 id="load_prog"
                 max="100"
-                [value]='serial.binProgress.toFixed(0)'>
+                [value]='bin_bar.toFixed(0)'>
             </progress>
             <!-- <span id="progPercent">{{serial.binProgress.toFixed(0)}} %</span> -->
             <span id="progPercent">{{loadProg.value}} %</span>

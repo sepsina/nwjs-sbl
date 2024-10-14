@@ -34,3 +34,21 @@ export const FLASH_STATUS_PROG_FAIL     = 3;
 export const FLASH_STATUS_VERIFY_FAIL   = 4;
 export const FLASH_STATUS_READ_FAIL     = 5;
 
+export const DL_OK = 0;
+export const DL_FAIL = 1;
+export const DL_NO_PART = 2;
+export const WR_OK = 3;
+export const WR_FAIL = 4;
+
+export const ORANGE = 'orangered';
+export const RED = 'red';
+export const GREEN = 'green';
+export const BLUE = 'blue';
+export const OLIVE = 'olive';
+export const PURPLE = 'purple'
+export const CHOCOLATE = 'chocolate';
+
+export const PAGE_SIZE = 512;
+export const SSR_900 = 900;
+export const GET_SIZE = 0x0A;
+export const GET_PAGE = 0x0B;

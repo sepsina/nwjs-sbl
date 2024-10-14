@@ -1,20 +1,13 @@
 ///<reference types="chrome"/>
 //'use strict';
-import { Injectable, NgZone } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { EventsService } from './events.service';
+import { NetService } from './net.service';
 import { GlobalsService } from './globals.service';
 import { UtilsService } from './utils.service';
 import * as gIF from './gIF';
 import * as gConst from './gConst';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-
-const ORANGE = 'orangered';
-const RED = 'red';
-const GREEN = 'green';
-const BLUE = 'blue';
-const OLIVE = 'olive';
-const PURPLE = 'purple'
-const CHOCOLATE = 'chocolate';
 
 // cbc-key-12345678
 const key = [
@@ -31,7 +24,6 @@ const iv = [
     0x32,0x33,0x34,0x35,
     0x36,0x37,0x38,0x39
 ];
-
 
 // cigldeker-101967
 const test_data = [
@@ -82,13 +74,13 @@ export class SerialService {
 
     slMsg = {} as gIF.slMsg_t;
 
+    prevPartNum = 0;
     partNum = 0;
 
     binData!: Uint8Array;
     binFlag = false;
     binPage = 0;
     wrBinFlag = false;
-    binProgress = 0;
 
     flashPagesNum = 0;
 
@@ -100,7 +92,7 @@ export class SerialService {
         private globals: GlobalsService,
         private utils: UtilsService,
         private http: HttpClient,
-        private ngZone: NgZone
+        private net: NetService
     ) {
         chrome.serial.onReceive.addListener((info)=>{
             if(info.connectionId === this.connID){
@@ -149,7 +141,7 @@ export class SerialService {
      */
     async closeComPort() {
         if(this.connID > -1){
-            this.utils.sendMsg('close port', RED);
+            this.utils.sendMsg('close port', gConst.RED);
             this.events.publish('closePort', 'close');
 
             const result = await this.closePortAsync(this.connID);
@@ -210,7 +202,7 @@ export class SerialService {
                 setTimeout(()=>{
                     this.listComPorts();
                 }, 2000);
-                this.utils.sendMsg('no com ports', RED, 7);
+                this.utils.sendMsg('no com ports', gConst.RED, 7);
             }
         });
     }
@@ -233,7 +225,7 @@ export class SerialService {
             return;
         }
         this.portPath = this.comPorts[this.portIdx].path;
-        this.utils.sendMsg(`testing: ${this.portPath}`, BLUE);
+        this.utils.sendMsg(`testing: ${this.portPath}`, gConst.BLUE);
         let connOpts = {
             bitrate: 115200
         };
@@ -249,7 +241,7 @@ export class SerialService {
             }, 10);
         }
         else {
-            this.utils.sendMsg(`err: ${chrome.runtime.lastError?.message}`, RED);
+            this.utils.sendMsg(`err: ${chrome.runtime.lastError?.message}`, gConst.RED);
             clearTimeout(this.findPortTMO);
             this.findPortTMO = setTimeout(() => {
                 this.findComPort();
@@ -380,7 +372,7 @@ export class SerialService {
                         clearTimeout(this.testPortTMO);
                         this.validPortFlag = true;
                         this.searchPortFlag = false;
-                        this.utils.sendMsg('port valid', GREEN);
+                        this.utils.sendMsg('port valid', gConst.GREEN);
                         setTimeout(()=>{
                             this.rdPartNum();
                         }, 0);
@@ -394,48 +386,57 @@ export class SerialService {
                     let cmdID = this.rwBuf.read_uint8();
                     switch(cmdID) {
                         case gConst.USB_CMD_WR_PAGE: {
+                            let failFlag = true;
                             let status = this.rwBuf.read_uint8();
                             switch(status){
                                 case gConst.FLASH_STATUS_OK: {
+                                    failFlag = false;
                                     this.binPage++;
-                                    if(this.binPage < this.flashPagesNum){
+                                    if(this.binPage < this.net.numPages){
                                         setTimeout(()=>{
                                             this.wrFlashPageReq();
-                                        }, 10);
+                                        }, 0);
                                     }
                                     else {
                                         setTimeout(()=>{
-                                            this.writeBinDone();
-                                        }, 10);
+                                            this.wrBinDone();
+                                        }, 0);
                                     }
                                     break;
                                 }
                                 case gConst.FLASH_STATUS_INIT_FAIL: {
-                                    this.utils.sendMsg("flash err: init fail", RED);
+                                    this.utils.sendMsg("flash err: init fail", gConst.RED);
                                     break;
                                 }
                                 case gConst.FLASH_STATUS_ERASE_FAIL: {
-                                    this.utils.sendMsg("flash err: erase fail", RED);
+                                    this.utils.sendMsg("flash err: erase fail", gConst.RED);
                                     break;
                                 }
                                 case gConst.FLASH_STATUS_PROG_FAIL: {
-                                    this.utils.sendMsg("flash err: prog fail", RED);
+                                    this.utils.sendMsg("flash err: prog fail", gConst.RED);
                                     break;
                                 }
                                 case gConst.FLASH_STATUS_VERIFY_FAIL: {
-                                    this.utils.sendMsg("flash err: verify fail", RED);
+                                    this.utils.sendMsg("flash err: verify fail", gConst.RED);
                                     break;
                                 }
                                 default: {
-                                    this.utils.sendMsg("flash err: unsuported", RED);
+                                    this.utils.sendMsg("flash err: unsuported", gConst.RED);
                                     break;
                                 }
+                            }
+                            if(failFlag == true){
+                                this.wrBinFailed();
                             }
                             break;
                         }
                         case gConst.USB_CMD_READ_PART_NUM: {
                             this.partNum = this.rwBuf.read_uint32_LE();
-                            this.utils.sendMsg(`part num: ${this.partNum}`, BLUE);
+                            this.utils.sendMsg(`part num: ${this.partNum}`, gConst.BLUE);
+                            if(this.prevPartNum != this.partNum){
+                                this.prevPartNum = this.partNum;
+                                this.events.publish('new_part', this.partNum);
+                            }
                             break;
                         }
                         default: {
@@ -454,7 +455,7 @@ export class SerialService {
                         log_msg += String.fromCharCode(chrCode);
                     }
                 }
-                this.utils.sendMsg(log_msg, ORANGE);
+                this.utils.sendMsg(log_msg, gConst.ORANGE);
                 break;
             }
         }
@@ -516,7 +517,7 @@ export class SerialService {
 
         const sendInfo: any = await this.serialSendAsync(slMsg);
         if(sendInfo.error){
-            this.utils.sendMsg(`send err: ${sendInfo.error}`, RED);
+            this.utils.sendMsg(`send err: ${sendInfo.error}`, gConst.RED);
         }
     }
 
@@ -551,7 +552,7 @@ export class SerialService {
                     break;
                 }
                 case 'device_lost': {
-                    this.utils.sendMsg(`${this.portPath} lost`, RED);
+                    this.utils.sendMsg(`${this.portPath} lost`, gConst.RED);
                     setTimeout(()=>{
                         this.closeComPort();
                     }, 10);
@@ -582,7 +583,7 @@ export class SerialService {
     readBin(path: string) {
 
         if(this.wrBinFlag == true){
-            this.utils.sendMsg(`busy`, CHOCOLATE);
+            this.utils.sendMsg(`busy`, gConst.CHOCOLATE);
             return;
         }
         this.binData = this.fs.readFileSync(path);
@@ -612,7 +613,7 @@ export class SerialService {
     dlBin() {
 
         if(this.wrBinFlag == true){
-            this.utils.sendMsg(`busy`, CHOCOLATE);
+            this.utils.sendMsg(`busy`, gConst.CHOCOLATE);
             return;
         }
         this.http.get(ssrURL, {
@@ -644,28 +645,11 @@ export class SerialService {
      *
      */
     writeBin() {
-
-        if(this.binFlag == false){
-            this.utils.sendMsg(`select bin file`, CHOCOLATE);
-            return;
-        }
-        if(this.wrBinFlag == true){
-            this.utils.sendMsg(`busy`, CHOCOLATE);
-            return;
-        }
-        if(this.portOpenFlag == false){
-            this.utils.sendMsg(`no port open`, CHOCOLATE);
-            return;
-        }
-        this.ngZone.run(()=>{
-            this.wrBinFlag = true;
-            this.binProgress = 0;
-        });
-
+        this.wrBinFlag = true;
+        this.binPage = 0;
         setTimeout(() => {
-            this.binPage = 0;
             this.wrFlashPageReq();
-        }, 10);
+        }, 0);
     }
 
     /***********************************************************************************************
@@ -689,13 +673,9 @@ export class SerialService {
 
         let binIdx = this.binPage * FLASH_PAGE_SIZE;
         for(let i = 0; i < FLASH_PAGE_SIZE; i++){
-            this.rwBuf.write_uint8(this.binData[binIdx++]);
+            this.rwBuf.write_uint8(this.net.bin_img[binIdx++]);
         }
-
-        this.ngZone.run(()=>{
-            this.binProgress = 100 * this.binPage / this.flashPagesNum;
-        });
-        this.utils.sendMsg(`--- ${this.binProgress.toFixed(1)}% ---`, GREEN, 7);
+        this.events.publish('bin_bar', ((this.binPage * 100) / this.net.numPages));
 
         let msgLen = this.rwBuf.wrIdx;
         let dataLen = msgLen - gConst.HEAD_LEN;
@@ -710,20 +690,33 @@ export class SerialService {
     }
 
     /***********************************************************************************************
-     * fn          writeBinDone
+     * fn          wrBinDone
      *
      * brief
      *
      */
-    writeBinDone() {
+    wrBinDone() {
 
-        this.binPage = 0;
+        this.wrBinFlag = false;
 
-        this.ngZone.run(()=>{
-            this.wrBinFlag = false;
-            this.binProgress = 0;
-            this.utils.sendMsg(`--- 100% ---`, GREEN, 7);
-        });
+        const binInfo = {} as gIF.binInfo_t;
+        binInfo.status = gConst.WR_OK;
+        this.events.publish('bin_info', binInfo);
+    }
+
+    /***********************************************************************************************
+     * fn          wrBinFailed
+     *
+     * brief
+     *
+     */
+    wrBinFailed() {
+
+        this.wrBinFlag = false;
+
+        const binInfo = {} as gIF.binInfo_t;
+        binInfo.status = gConst.WR_FAIL;
+        this.events.publish('bin_info', binInfo);
     }
 
     /***********************************************************************************************

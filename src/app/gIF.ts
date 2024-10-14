@@ -25,7 +25,20 @@ export interface msgLogs_t {
 export interface slMsg_t {
     type: number;
     msg: Uint8Array;
-  }
+}
+
+export interface rinfo_t {
+    address: string;
+    family: string;
+    port: number;
+    size: number;
+}
+
+export interface binInfo_t {
+    status: number;
+    size: number;
+    file: string;
+}
 
 export class rwBuf_t {
 

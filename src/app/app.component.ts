@@ -10,6 +10,7 @@ import { GlobalsService } from './globals.service';
 import { EventsService } from './events.service';
 import { SerialService } from './serial.service';
 import { UtilsService } from './utils.service';
+import { NetService } from './net.service';
 
 import { CommonModule } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
@@ -18,6 +19,9 @@ import fileDialog from 'file-dialog';
 
 import * as gIF from './gIF';
 import * as gConst from './gConst';
+
+const PAGE_SIZE = 512;
+const NO_BIN = '- - -.bin';
 
 @Component({
     selector: 'app-root',
@@ -37,21 +41,31 @@ export class AppComponent implements OnInit, OnDestroy {
     scrollFlag = false;
 
     startFlag = true;
-    binPath = '- - - - -.bin';
+    binPath = NO_BIN;
+    bin_bar = 0;
 
     wrBinTmo: any;
     selBinTmo: any;
     dlBinTmo: any;
 
+    bin_img = new Uint8Array(256*1024);
+    img_idx = 0;
+    page = 0;
+
+    rxBuf = new Uint8Array(1024);
+    txBuf = new Uint8Array(1024);
+    rwBuf = new gIF.rwBuf_t();
+
     constructor(
         public serial: SerialService,
+        public net: NetService,
         public globals: GlobalsService,
         private events: EventsService,
         private utils: UtilsService,
         private http: HttpClient,
         private ngZone: NgZone
     ) {
-        // ---
+        this.rwBuf.wrBuf = new DataView(this.txBuf.buffer);
     }
 
     /***********************************************************************************************
@@ -80,6 +94,7 @@ export class AppComponent implements OnInit, OnDestroy {
                 this.startFlag = true;
             }
         });
+
         this.events.subscribe('logMsg', (msg: gIF.msgLogs_t)=>{
             const logsLen = this.logs.length;
             const last = this.logs[logsLen - 1];
@@ -99,6 +114,57 @@ export class AppComponent implements OnInit, OnDestroy {
             if(this.scrollFlag == true) {
                 this.logList.nativeElement.scrollTop = this.logList.nativeElement.scrollHeight;
             }
+        });
+
+        this.events.subscribe('bin_info', (info: gIF.binInfo_t)=>{
+
+            let bin_path = '';
+            switch(info.status){
+                case gConst.DL_OK: {
+                    bin_path = `${info.file} (${info.size} bytes)`;
+                    this.net.numPages = Math.floor(info.size / gConst.PAGE_SIZE);
+                    this.utils.sendMsg('--- 100.0% ---', gConst.GREEN, 7);
+                    break;
+                }
+                case gConst.DL_NO_PART: {
+                    bin_path = NO_BIN;
+                    this.utils.sendMsg('*** no valid device ***', gConst.RED);
+                    break;
+                }
+                case gConst.DL_FAIL: {
+                    bin_path = NO_BIN;
+                    this.utils.sendMsg('*** bin download failed ***', gConst.RED);
+                    break;
+                }
+                case gConst.WR_OK: {
+                    this.utils.sendMsg('--- 100.0% ---', gConst.GREEN, 7);
+                    break;
+                }
+                case gConst.WR_FAIL: {
+                    // ---
+                    break;
+                }
+            }
+            this.ngZone.run(()=>{
+                if(bin_path){
+                    this.binPath = bin_path;
+                }
+                this.bin_bar = 0;
+            });
+        });
+
+        this.events.subscribe('bin_bar', (val: number)=>{
+            this.ngZone.run(()=>{
+                this.bin_bar = val;
+            });
+            this.utils.sendMsg(`--- ${this.bin_bar.toFixed(1)}% ---`, gConst.GREEN, 7);
+        });
+
+        this.events.subscribe('new_part', (part: number)=>{
+            this.net.numPages = 0;
+            this.ngZone.run(()=>{
+                this.binPath = NO_BIN;
+            });
         });
     }
 
@@ -182,9 +248,27 @@ export class AppComponent implements OnInit, OnDestroy {
      */
     dlBinFile() {
 
+        if(this.net.busy_flag == true){
+            this.utils.sendMsg('*** udp busy ***', gConst.CHOCOLATE);
+            document.getElementById("selBin")!.blur();
+            return;
+        }
+        if(this.serial.wrBinFlag == true){
+            this.utils.sendMsg(`*** serial busy ***`, gConst.CHOCOLATE);
+            document.getElementById("selBin")!.blur();
+            return;
+        }
+        // uncomment after testing
+        /*
+        if(this.serial.partNum == 0){
+            this.utils.sendMsg('no valid device!', gConst.RED);
+            document.getElementById("selBin")!.blur();
+            return;
+        }
+        */
         clearTimeout(this.dlBinTmo);
         this.dlBinTmo = setTimeout(()=>{
-            this.serial.dlBin();
+            this.net.dl_bin();
             document.getElementById("selBin")!.blur();
         }, 200);
     }
@@ -196,6 +280,28 @@ export class AppComponent implements OnInit, OnDestroy {
      *
      */
     writeBin() {
+
+        if(this.serial.portOpenFlag == false){
+            this.utils.sendMsg(`*** no port open ***`, gConst.CHOCOLATE);
+            document.getElementById("wrBin")!.blur();
+            return;
+        }
+        if(this.net.numPages == 0){
+            this.utils.sendMsg('*** get valid bin ***', gConst.CHOCOLATE);
+            document.getElementById("wrBin")!.blur();
+            return;
+        }
+        if(this.net.busy_flag == true){
+            this.utils.sendMsg('*** udp busy ***', gConst.CHOCOLATE);
+            document.getElementById("wrBin")!.blur();
+            return;
+        }
+        if(this.serial.wrBinFlag == true){
+            this.utils.sendMsg(`*** serial busy ***`, gConst.CHOCOLATE);
+            document.getElementById("wrBin")!.blur();
+            return;
+        }
+
         clearTimeout(this.wrBinTmo);
         this.wrBinTmo = setTimeout(()=>{
             this.serial.writeBin();
