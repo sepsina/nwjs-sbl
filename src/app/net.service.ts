@@ -31,6 +31,10 @@ export class NetService {
     udpTmo: any;
     retryTmo: any;
 
+    crypto: any;
+
+    trash = 0;
+
     constructor(
         private events: EventsService,
         private utils: UtilsService
@@ -49,6 +53,9 @@ export class NetService {
             console.log(`server listening ${address.address}:${address.port}`);
         });
         this.udpSocket.bind(PORT);
+
+        this.crypto = window.nw.require('crypto');
+
     }
 
     /***********************************************************************************************
@@ -63,15 +70,7 @@ export class NetService {
         this.img_idx = 0;
         this.busy_flag = true;
 
-        this.rwBuf.wrIdx = 0;
-        this.rwBuf.write_uint8(gConst.GET_SIZE);
-        //this.rwBuf.write_uint32_LE(this.serial.partNum);
-        this.rwBuf.write_uint32_LE(gConst.SSR_900); // *** test ***
-
-        const rem = {} as gIF.rinfo_t;
-        rem.port = PORT;
-        rem.address = HOST;
-        this.udpSend(rem);
+        this.getSize();
     }
 
     /***********************************************************************************************
@@ -108,43 +107,102 @@ export class NetService {
                         }
                     } while(chr != 0);
 
-                    this.rwBuf.wrIdx = 0;
-                    this.rwBuf.write_uint8(gConst.GET_PAGE);
-                    //this.rwBuf.write_uint32_LE(this.serial.partNum);
-                    this.rwBuf.write_uint32_LE(gConst.SSR_900); // *** test ***
-                    this.rwBuf.write_uint32_LE(this.img_idx);
-
-                    this.udpSend(rem);
+                    this.getPage(rem);
                 }
                 break;
             }
             case gConst.GET_PAGE: {
-                const len = msg.byteLength;
-                do {
-                    this.bin_img[this.img_idx++] = this.rwBuf.read_uint8();
-                } while(this.rwBuf.rdIdx < len);
-                if(this.img_idx < this.bin_size){
-                    this.rwBuf.wrIdx = 0;
-                    this.rwBuf.write_uint8(gConst.GET_PAGE);
-                    //this.rwBuf.write_uint32_LE(this.serial.partNum);
-                    this.rwBuf.write_uint32_LE(gConst.SSR_900); // *** test ***
-                    this.rwBuf.write_uint32_LE(this.img_idx);
-
-                    this.udpSend(rem);
-                    this.events.publish('bin_bar', ((this.img_idx * 100) / this.bin_size));
+                const start_idx = this.rwBuf.read_uint32_LE();
+                if(start_idx == this.img_idx){
+                    const len = msg.byteLength;
+                    do {
+                        this.bin_img[this.img_idx++] = this.rwBuf.read_uint8();
+                    } while(this.rwBuf.rdIdx < len);
+                    if(this.img_idx < this.bin_size){
+                        this.getPage(rem);
+                    }
+                    else {
+                        this.busy_flag = false;
+                        const binInfo = {} as gIF.binInfo_t;
+                        const shaFlag = this.checkSHA();
+                        if(shaFlag == true){
+                            this.numPages = Math.floor(this.bin_size / gConst.PAGE_SIZE);
+                            binInfo.status = gConst.DL_OK;
+                            binInfo.size = this.bin_size;
+                            binInfo.file = this.bin_file;
+                        }
+                        else {
+                            binInfo.status = gConst.DL_SHA_NOT_VALID;
+                        }
+                        this.events.publish('bin_info', binInfo);
+                    }
                 }
                 else {
-                    this.busy_flag = false;
-                    const binInfo: gIF.binInfo_t = {
-                        status: gConst.DL_OK,
-                        size: this.bin_size,
-                        file: this.bin_file
-                    };
-                    this.events.publish('bin_info', binInfo);
+                    this.getPage(rem);
                 }
                 break;
             }
         }
+    }
+
+    /***********************************************************************************************
+     * fn          getSize
+     *
+     * brief
+     *
+     */
+    getSize(){
+
+        this.rwBuf.wrIdx = 0;
+        this.rwBuf.write_uint8(gConst.GET_SIZE);
+        //this.rwBuf.write_uint32_LE(this.serial.partNum);
+        this.rwBuf.write_uint32_LE(gConst.SSR_900); // *** test ***
+
+        const rem = {} as gIF.rinfo_t;
+        rem.port = PORT;
+        rem.address = HOST;
+        this.udpSend(rem);
+    }
+
+    /***********************************************************************************************
+     * fn          getPage
+     *
+     * brief
+     *
+     */
+    getPage(rem: gIF.rinfo_t){
+
+        this.rwBuf.wrIdx = 0;
+        this.rwBuf.write_uint8(gConst.GET_PAGE);
+        //this.rwBuf.write_uint32_LE(this.serial.partNum);
+        this.rwBuf.write_uint32_LE(gConst.SSR_900); // *** test ***
+        this.rwBuf.write_uint32_LE(this.img_idx);
+
+        this.udpSend(rem);
+        this.events.publish('bin_bar', ((this.img_idx * 100) / this.bin_size));
+    }
+
+    /***********************************************************************************************
+     * fn          shaCheck
+     *
+     * brief
+     *
+     */
+    checkSHA(){
+
+        const hash = this.crypto.createHash('sha256');
+        let len = this.bin_size - 32;
+        hash.update(this.bin_img.subarray(0, len));
+        const sha: Uint8Array = hash.digest();
+        let valid_sha = true;
+        for(let i = 0; i < 32; i++){
+            if(this.bin_img[len++] != sha[i]){
+                valid_sha = false;
+                break;
+            }
+        }
+        console.log(`sha valid: ${valid_sha}`);
+        return valid_sha;
     }
 
     /***********************************************************************************************

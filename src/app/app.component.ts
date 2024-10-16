@@ -6,16 +6,12 @@ import {
     ViewChild,
     ElementRef
 } from '@angular/core';
-import { GlobalsService } from './globals.service';
 import { EventsService } from './events.service';
 import { SerialService } from './serial.service';
 import { UtilsService } from './utils.service';
 import { NetService } from './net.service';
 
 import { CommonModule } from '@angular/common';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import fileDialog from 'file-dialog';
-//import { saveAs } from 'file-saver';
 
 import * as gIF from './gIF';
 import * as gConst from './gConst';
@@ -59,10 +55,8 @@ export class AppComponent implements OnInit, OnDestroy {
     constructor(
         public serial: SerialService,
         public net: NetService,
-        public globals: GlobalsService,
         private events: EventsService,
         private utils: UtilsService,
-        private http: HttpClient,
         private ngZone: NgZone
     ) {
         this.rwBuf.wrBuf = new DataView(this.txBuf.buffer);
@@ -122,8 +116,12 @@ export class AppComponent implements OnInit, OnDestroy {
             switch(info.status){
                 case gConst.DL_OK: {
                     bin_path = `${info.file} (${info.size} bytes)`;
-                    this.net.numPages = Math.floor(info.size / gConst.PAGE_SIZE);
                     this.utils.sendMsg('--- 100.0% ---', gConst.GREEN, 7);
+                    break;
+                }
+                case gConst.DL_SHA_NOT_VALID: {
+                    bin_path = NO_BIN;
+                    this.utils.sendMsg('*** not valid sha256 ***', gConst.RED);
                     break;
                 }
                 case gConst.DL_NO_PART: {
@@ -198,47 +196,6 @@ export class AppComponent implements OnInit, OnDestroy {
         }), 200;
     }
 
-    /***********************************************************************************************
-     * fn          selBinFile
-     *
-     * brief
-     *
-     */
-    selBinFile() {
-        clearTimeout(this.selBinTmo);
-        this.selBinTmo = setTimeout(()=>{
-            fileDialog({ multiple: false, accept: '.bin'}).then((files)=>{
-                const file: any = files[0];
-                if(file){
-                    this.binPath = file.name;
-                    this.utils.sendMsg(`bin path: ${file.path}`);
-                    this.serial.readBin(file.path);
-                }
-            });
-            document.getElementById("selBin")!.blur();
-        }, 200);
-    }
-
-    /***********************************************************************************************
-     * fn          encryptBin
-     *
-     * brief
-     *
-     */
-    encryptBin(){
-        clearTimeout(this.selBinTmo);
-        this.selBinTmo = setTimeout(()=>{
-            fileDialog({ multiple: false, accept: '.bin'}).then((files)=>{
-                const file: any = files[0];
-                if(file){
-                    this.binPath = file.name;
-                    this.utils.sendMsg(`bin path: ${file.path}`);
-                    this.serial.encBin(file.path);
-                }
-            });
-            document.getElementById("selBin")!.blur();
-        }, 200);
-    }
 
     /***********************************************************************************************
      * fn          dlBinFile
@@ -308,4 +265,47 @@ export class AppComponent implements OnInit, OnDestroy {
             document.getElementById("wrBin")!.blur();
         }, 200);
     }
+
+    /***********************************************************************************************
+     * fn          selBinFile
+     *
+     * brief
+     *
+     *
+    selBinFile() {
+        clearTimeout(this.selBinTmo);
+        this.selBinTmo = setTimeout(()=>{
+            fileDialog({ multiple: false, accept: '.bin'}).then((files)=>{
+                const file: any = files[0];
+                if(file){
+                    this.binPath = file.name;
+                    this.utils.sendMsg(`bin path: ${file.path}`);
+                    this.serial.readBin(file.path);
+                }
+            });
+            document.getElementById("selBin")!.blur();
+        }, 200);
+    }
+    */
+    /***********************************************************************************************
+     * fn          encryptBin
+     *
+     * brief
+     *
+     *
+    encryptBin(){
+        clearTimeout(this.selBinTmo);
+        this.selBinTmo = setTimeout(()=>{
+            fileDialog({ multiple: false, accept: '.bin'}).then((files)=>{
+                const file: any = files[0];
+                if(file){
+                    this.binPath = file.name;
+                    this.utils.sendMsg(`bin path: ${file.path}`);
+                    this.serial.encBin(file.path);
+                }
+            });
+            document.getElementById("selBin")!.blur();
+        }, 200);
+    }
+    */
 }

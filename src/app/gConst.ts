@@ -37,8 +37,9 @@ export const FLASH_STATUS_READ_FAIL     = 5;
 export const DL_OK = 0;
 export const DL_FAIL = 1;
 export const DL_NO_PART = 2;
-export const WR_OK = 3;
-export const WR_FAIL = 4;
+export const DL_SHA_NOT_VALID = 3;
+export const WR_OK = 4;
+export const WR_FAIL = 5;
 
 export const ORANGE = 'orangered';
 export const RED = 'red';

@@ -9,30 +9,6 @@ import * as gIF from './gIF';
 import * as gConst from './gConst';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 
-// cbc-key-12345678
-const key = [
-    0x63,0x62,0x63,0x2D,
-    0x6B,0x65,0x79,0x2D,
-    0x31,0x32,0x33,0x34,
-    0x35,0x36,0x37,0x38
-];
-
-// cbc-iv-123456789
-const iv = [
-    0x63,0x62,0x63,0x2D,
-    0x69,0x76,0x2D,0x31,
-    0x32,0x33,0x34,0x35,
-    0x36,0x37,0x38,0x39
-];
-
-// cigldeker-101967
-const test_data = [
-    0x63,0x69,0x67,0x6C,
-    0x64,0x65,0x6B,0x65,
-    0x72,0x2D,0x31,0x30,
-    0x31,0x39,0x36,0x37
-];
-
 // TEST
 const ssrURL = 'https://www.dropbox.com/scl/fi/zs1a05dhxzwpu6ebwgp8x/enc.bin?rlkey=xudhvq5093wr9ex5hnsxdgmgq&st=1jo659ut&dl=1';
 
@@ -85,7 +61,6 @@ export class SerialService {
     flashPagesNum = 0;
 
     fs: any;
-    aes_js: any;
 
     constructor(
         private events: EventsService,
@@ -104,7 +79,6 @@ export class SerialService {
         });
 
         this.fs = window.nw.require('fs');
-        this.aes_js = window.nw.require('aes-js');
         /*
         setTimeout(()=>{
             this.checkCom();
@@ -575,70 +549,6 @@ export class SerialService {
     }
 
     /***********************************************************************************************
-     * fn          readBin
-     *
-     * brief
-     *
-     */
-    readBin(path: string) {
-
-        if(this.wrBinFlag == true){
-            this.utils.sendMsg(`busy`, gConst.CHOCOLATE);
-            return;
-        }
-        this.binData = this.fs.readFileSync(path);
-        if(this.binData){
-            const len = this.binData.length - PART_DESC_LEN;
-            const partDesc = new Uint8Array(PART_DESC_LEN);
-            for(let i = 0, idx = len; i < PART_DESC_LEN; i++, idx++){
-                partDesc[i] = this.binData[idx];
-            }
-            this.rwBuf.rdBuf = new DataView(partDesc.buffer);
-            this.rwBuf.rdIdx = 0;
-            const binPartNum = this.rwBuf.read_uint32_LE();
-            console.log(`bin part num: ${binPartNum}`);
-            if(this.partNum == binPartNum){
-                this.binFlag = true;
-                this.flashPagesNum = Math.floor(len / FLASH_PAGE_SIZE);
-            }
-        }
-    }
-
-    /***********************************************************************************************
-     * fn          dlBin
-     *
-     * brief
-     *
-     */
-    dlBin() {
-
-        if(this.wrBinFlag == true){
-            this.utils.sendMsg(`busy`, gConst.CHOCOLATE);
-            return;
-        }
-        this.http.get(ssrURL, {
-            responseType: 'blob'
-        }).subscribe({
-            next: async (blob)=>{
-                this.binData = new Uint8Array(await blob.arrayBuffer());
-                const len = this.binData.length - PART_DESC_LEN;
-                const partData = this.binData.slice(len);
-                this.rwBuf.rdBuf = new DataView(partData.buffer);
-                this.rwBuf.rdIdx = 0;
-                const binPartNum = this.rwBuf.read_uint32_LE();
-                console.log(`bin part num: ${binPartNum}`);
-                if(this.partNum == binPartNum){
-                    this.binFlag = true;
-                    this.flashPagesNum = Math.floor(len / FLASH_PAGE_SIZE);
-                }
-            },
-            error: (err: HttpErrorResponse)=>{
-                this.utils.sendMsg(`${err.name}: ${err.status}`, 'red');
-            }
-        });
-    }
-
-    /***********************************************************************************************
      * fn          writeBin
      *
      * brief
@@ -750,52 +660,68 @@ export class SerialService {
     }
 
     /***********************************************************************************************
-     * fn          encBin
+     * fn          readBin
      *
      * brief
      *
-     */
-    encBin(path: string) {
+     *
+    readBin(path: string) {
 
-        let i = 0;
-        let rd_idx = 0;
-        let n_read = 0;
-        let wr_idx = 0;
-        let encChunk: any;
-        const rdBuf = new Uint8Array(FLASH_PAGE_SIZE);
-
-        try {
-            const fdBin = this.fs.openSync(path, 'r');
-            const fdEnc = this.fs.openSync('c:/serfa/trash/enc.bin', 'w');
-            while(1){
-                n_read = this.fs.readSync(fdBin, rdBuf, 0, FLASH_PAGE_SIZE, rd_idx);
-                rd_idx += n_read;
-                if(n_read == 0){
-                    break; // exit while loop
-                }
-                if(n_read < FLASH_PAGE_SIZE){
-                    for(i = n_read; i < FLASH_PAGE_SIZE; i++){
-                        rdBuf[i] = 0xFF;
-                    }
-                }
-                const cbc = new this.aes_js.ModeOfOperation.cbc(key, iv);
-                encChunk = cbc.encrypt(rdBuf);
-                this.fs.writeSync(fdEnc, encChunk, 0, FLASH_PAGE_SIZE, wr_idx);
-                wr_idx += FLASH_PAGE_SIZE;
-            }
-            this.fs.closeSync(fdBin);
-            // add part description
-            this.rwBuf.wrIdx = 0;
-            this.rwBuf.write_uint32_LE(900);
-            for(let i = this.rwBuf.wrIdx; i < PART_DESC_LEN; i++){
-                this.rwBuf.write_uint8(0xFF);
-            }
-            this.fs.writeSync(fdEnc, this.txBuf.slice(0, PART_DESC_LEN), 0, PART_DESC_LEN, wr_idx);
-            this.fs.closeSync(fdEnc);
+        if(this.wrBinFlag == true){
+            this.utils.sendMsg(`busy`, gConst.CHOCOLATE);
+            return;
         }
-        catch (err) {
-            console.log(err)
+        this.binData = this.fs.readFileSync(path);
+        if(this.binData){
+            const len = this.binData.length - PART_DESC_LEN;
+            const partDesc = new Uint8Array(PART_DESC_LEN);
+            for(let i = 0, idx = len; i < PART_DESC_LEN; i++, idx++){
+                partDesc[i] = this.binData[idx];
+            }
+            this.rwBuf.rdBuf = new DataView(partDesc.buffer);
+            this.rwBuf.rdIdx = 0;
+            const binPartNum = this.rwBuf.read_uint32_LE();
+            console.log(`bin part num: ${binPartNum}`);
+            if(this.partNum == binPartNum){
+                this.binFlag = true;
+                this.flashPagesNum = Math.floor(len / FLASH_PAGE_SIZE);
+            }
         }
     }
+    */
+    /***********************************************************************************************
+     * fn          dlBin
+     *
+     * brief
+     *
+     *
+    dlBin() {
+
+        if(this.wrBinFlag == true){
+            this.utils.sendMsg(`busy`, gConst.CHOCOLATE);
+            return;
+        }
+        this.http.get(ssrURL, {
+            responseType: 'blob'
+        }).subscribe({
+            next: async (blob)=>{
+                this.binData = new Uint8Array(await blob.arrayBuffer());
+                const len = this.binData.length - PART_DESC_LEN;
+                const partData = this.binData.slice(len);
+                this.rwBuf.rdBuf = new DataView(partData.buffer);
+                this.rwBuf.rdIdx = 0;
+                const binPartNum = this.rwBuf.read_uint32_LE();
+                console.log(`bin part num: ${binPartNum}`);
+                if(this.partNum == binPartNum){
+                    this.binFlag = true;
+                    this.flashPagesNum = Math.floor(len / FLASH_PAGE_SIZE);
+                }
+            },
+            error: (err: HttpErrorResponse)=>{
+                this.utils.sendMsg(`${err.name}: ${err.status}`, 'red');
+            }
+        });
+    }
+    */
 
 }
